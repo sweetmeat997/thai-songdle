@@ -1,13 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
 
-// รายชื่อเพลงทั้งหมด คุมเพลงได้ง่ายๆ ตรงนี้เลย!
+// คลังเพลงหลัก: นำลิงก์ MP3 ตรงๆ มาใส่ตรงนี้ แล้วแก้ไข/เพิ่มเพลงได้ตลอดเวลาบน GitHub
 const MASTER_SONG_LIBRARY = [
-  { title: "ฝนตกไหม", artist: "Three Man Down", audio: "/song1.mp3" },
-  { title: "พิง", artist: "NONT TANONT", audio: "/song2.mp3" },
-  { title: "ซ่อนกลิ่น", artist: "Palmy", audio: "/song3.mp3" },
-  { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", audio: "/song4.mp3" },
-  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", audio: "/song5.mp3" }
+  { 
+    title: "ฝนตกไหม", 
+    artist: "Three Man Down", 
+    audio: "ใส่ลิงก์_mp3_ตรงนี้" 
+  },
+  { 
+    title: "พิง", 
+    artist: "NONT TANONT", 
+    audio: "ใส่ลิงก์_mp3_ตรงนี้" 
+  },
+  { 
+    title: "ซ่อนกลิ่น", 
+    artist: "Palmy", 
+    audio: "ใส่ลิงก์_mp3_ตรงนี้" 
+  }
 ];
 
 const ALL_ANSWERS = MASTER_SONG_LIBRARY.map(song => `${song.title} - ${song.artist}`);
@@ -29,7 +39,7 @@ export default function App() {
 
   const audioRef = useRef(null);
 
-  // เลือกเพลงประจำวัน (ทุกคนทั่วประเทศจะได้เล่นเพลงเดียวกันในแต่ละวัน)
+  // เลือกเพลงประจำวัน (อิงตามวันที่ เพื่อให้ทุกคนได้เล่นเพลงเดียวกัน)
   const getDailySong = () => {
     const today = new Date();
     const dayIndex = Math.floor(today.setHours(0,0,0,0) / (1000 * 60 * 60 * 24));
@@ -56,7 +66,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // ควบคุมเวลาเล่นเสียงเพลงไม่ให้เกินสเตปที่เปิด
+  // ควบคุมเวลาเล่นเสียงเพลงไม่ให้เกินสเตปที่ปลดล็อก
   useEffect(() => {
     let animationFrame;
     const updateProgress = () => {
