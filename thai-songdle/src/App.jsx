@@ -11,12 +11,14 @@ const MASTER_SONG_LIBRARY = [
   { 
     title: "พิง", 
     artist: "NONT TANONT", 
-    audio: "ใส่ลิงก์_mp3_ตรงนี้" 
+    audio: "https://files.catbox.moe/33rs0y.mp3" 
   },
   { 
     title: "ซ่อนกลิ่น", 
     artist: "Palmy", 
-    audio: "ใส่ลิงก์_mp3_ตรงนี้" 
+    audio: "https://files.catbox.moe/bhcdd3.mp3" 
+    { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", audio: "/https://files.catbox.moe/0bom5h.mp3" },
+  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", audio: "/https://files.catbox.moe/be0kr1.mp3" }
   }
 ];
 
