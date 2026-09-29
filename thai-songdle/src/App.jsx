@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
 
-// คลังเพลงหลัก: นำลิงก์ MP3 ตรงๆ มาใส่ตรงนี้ แล้วแก้ไข/เพิ่มเพลงได้ตลอดเวลาบน GitHub
+// คลังเพลงหลัก (5 เพลง) แก้ไข เพิ่ม หรือเปลี่ยนลิงก์ตรงนี้ได้ตลอดเวลาบน GitHub
 const MASTER_SONG_LIBRARY = [
   { 
     title: "ฝนตกไหม", 
@@ -17,8 +17,16 @@ const MASTER_SONG_LIBRARY = [
     title: "ซ่อนกลิ่น", 
     artist: "Palmy", 
     audio: "https://files.catbox.moe/bhcdd3.mp3" 
-    { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", audio: "/https://files.catbox.moe/0bom5h.mp3" },
-  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", audio: "/https://files.catbox.moe/be0kr1.mp3" }
+  },
+  { 
+    title: "คิดแต่ไม่ถึง", 
+    artist: "Tilly Birds", 
+    audio: "https://files.catbox.moe/0bom5h.mp3" 
+  },
+  { 
+    title: "ลบไม่ได้ช่วยให้ลืม", 
+    artist: "Ink Waruntorn", 
+    audio: "https://files.catbox.moe/be0kr1.mp3" 
   }
 ];
 
