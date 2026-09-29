@@ -1,16 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
 
-// คลังเพลงโดยใช้ YouTube Video ID
-const MASTER_SONG_LIBRARY = [
-  { title: "ฝนตกไหม", artist: "Three Man Down", youtubeId: "36Y1v27T7OM" },
-  { title: "พิง", artist: "NONT TANONT", youtubeId: "V54w1a_9-94" },
-  { title: "ซ่อนกลิ่น", artist: "Palmy", youtubeId: "V6709h0i_10" },
-  { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", youtubeId: "7L2f9y8z1k0" },
-  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", youtubeId: "6X4z2q3w8v0" }
-];
+const dailySongPool = {
+  easy: {
+    title: "ฝนตกไหม",
+    artist: "Three Man Down",
+    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/71/6a/51/716a51d9-8356-896c-b362-d27376c8db80/mza_1067253578794403328.plus.aac.p.m4a"
+  },
+  medium: {
+    title: "พิง",
+    artist: "NONT TANONT",
+    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/a4/60/76/a4607632-6a84-93ec-e889-25f00c732cb6/mza_14093952702161730030.plus.aac.p.m4a"
+  },
+  hard: {
+    title: "ซ่อนกลิ่น",
+    artist: "Palmy",
+    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview112/v4/6c/42/47/6c42472d-3d46-4e5c-02cf-37b51b34e402/mza_1669226168923058862.plus.aac.p.m4a"
+  },
+  expert: {
+    title: "คิดแต่ไม่ถึง",
+    artist: "Tilly Birds",
+    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/43/8d/4b/438d4b3c-6239-0d19-4869-2f2b3e8c05bb/mza_11977755866164287848.plus.aac.p.m4a"
+  },
+  impossible: {
+    title: "ลบไม่ได้ช่วยให้ลืม",
+    artist: "Ink Waruntorn",
+    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/31/5b/19/315b19b6-8c41-7994-4061-26c71048b613/mza_2375836894082218858.plus.aac.p.m4a"
+  }
+};
 
-const ALL_ANSWERS = MASTER_SONG_LIBRARY.map(song => `${song.title} - ${song.artist}`);
+const ALL_ANSWERS = [
+  "ฝนตกไหม - Three Man Down",
+  "พิง - NONT TANONT",
+  "ซ่อนกลิ่น - Palmy",
+  "คิดแต่ไม่ถึง - Tilly Birds",
+  "ลบไม่ได้ช่วยให้ลืม - Ink Waruntorn",
+  "โต๊ะริม - NONT TANONT",
+  "เพื่อนเล่น ไม่เล่นเพื่อน - Tilly Birds",
+  "แสงสุดท้าย - Bodyslam",
+  "นะหน้าทอง - Joey Phuwasit",
+  "ทรงอย่างแบด - Paper Planes"
+];
 
 const DEFAULT_DIFFICULTIES = [
   { id: 'easy', label: 'Easy', color: 'bg-green-500' },
@@ -39,101 +69,78 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  
+  const audioRef = useRef(null);
+  const animationRef = useRef(null);
   const [progress, setProgress] = useState(0);
 
-  const playerRef = useRef(null);
-  const [isPlayerReady, setIsPlayerReady] = useState(false);
-
   const currentState = gameStates[currentDiff];
-  
-  // สลับเพลงประจำวันตามวันที่
-  const getDailySong = () => {
-    const today = new Date();
-    const dayIndex = Math.floor(today.setHours(0,0,0,0) / (1000 * 60 * 60 * 24));
-    return MASTER_SONG_LIBRARY[dayIndex % MASTER_SONG_LIBRARY.length];
-  };
-
-  const currentSong = getDailySong();
+  const currentSong = dailySongPool[currentDiff];
   const currentAllowedTime = TIME_STEPS[currentState.step];
   const currentCorrectAnswer = `${currentSong.title} - ${currentSong.artist}`;
 
-  // โหลด YouTube IFrame API Script เข้ามาในระบบ
   useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    const timer = setInterval(() => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setHours(24, 0, 0, 0);
+      const diff = tomorrow - now;
 
-      window.onYouTubeIframeAPIReady = () => {
-        initPlayer(currentSong.youtubeId);
-      };
-    } else if (window.YT && window.YT.Player) {
-      initPlayer(currentSong.youtubeId);
-    }
+      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeRemaining(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  const initPlayer = (videoId) => {
-    playerRef.current = new window.YT.Player('youtube-player', {
-      height: '0',
-      width: '0',
-      videoId: videoId,
-      playerVars: {
-        'playsinline': 1,
-        'controls': 0,
-      },
-      events: {
-        'onReady': () => setIsPlayerReady(true),
-        'onStateChange': onPlayerStateChange
-      }
-    });
-  };
-
-  const onPlayerStateChange = (event) => {
-    // ถ้าเล่นเพลงจบหรือเกินเวลาที่กำหนด ให้หยุด
-    if (event.data === window.YT.PlayerState.PLAYING) {
-      setIsPlaying(true);
-    } else {
-      setIsPlaying(false);
-    }
-  };
-
-  // ควบคุมเวลาเล่นไม่ให้เกินโควตาสเตป
   useEffect(() => {
-    let interval;
-    if (isPlaying && isPlayerReady) {
-      const startTime = Date.now() - (progress * 1000);
-      interval = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        if (elapsed >= currentAllowedTime) {
-          if (playerRef.current && playerRef.current.pauseVideo) {
-            playerRef.current.pauseVideo();
-            playerRef.current.seekTo(0);
-          }
+    const checkAudioTime = () => {
+      if (audioRef.current && isPlaying) {
+        const currentTime = audioRef.current.currentTime;
+        setProgress(currentTime);
+
+        if (currentTime >= currentAllowedTime) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
           setIsPlaying(false);
           setProgress(0);
-          clearInterval(interval);
         } else {
-          setProgress(elapsed);
+          animationRef.current = requestAnimationFrame(checkAudioTime);
         }
-      }, 50);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, currentAllowedTime, isPlayerReady]);
-
-  const togglePlay = () => {
-    if (!isPlayerReady || !playerRef.current) return;
+      }
+    };
 
     if (isPlaying) {
-      playerRef.current.pauseVideo();
+      animationRef.current = requestAnimationFrame(checkAudioTime);
+    } else {
+      cancelAnimationFrame(animationRef.current);
+    }
+
+    return () => cancelAnimationFrame(animationRef.current);
+  }, [isPlaying, currentAllowedTime]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.load();
+    }
+    setIsPlaying(false);
+    setProgress(0);
+  }, [currentDiff]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      playerRef.current.seekTo(0);
-      playerRef.current.playVideo();
-      setIsPlaying(true);
-      setProgress(0);
+      audioRef.current.currentTime = 0;
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(e => console.error("Audio playback error:", e));
     }
   };
 
@@ -163,12 +170,11 @@ export default function App() {
     
     setSearchInput('');
     setShowDropdown(false);
-    if (playerRef.current && playerRef.current.pauseVideo) {
-      playerRef.current.pauseVideo();
-      playerRef.current.seekTo(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      setProgress(0);
     }
-    setIsPlaying(false);
-    setProgress(0);
   };
 
   const handleSkip = () => {
@@ -181,14 +187,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 px-4 font-sans select-none">
-      {/* ซ่อน YouTube Player ไว้ตรงนี้ */}
-      <div id="youtube-player" className="hidden"></div>
+      <audio ref={audioRef} src={currentSong.audio} preload="auto" />
 
       <div className="w-full max-w-2xl flex justify-between items-center mb-8">
         <h1 className="text-4xl font-black tracking-tighter text-cyan-400">THAI SONGDLE</h1>
         <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 text-sm">
           <Info size={16} className="text-cyan-400" />
-          <span>New Song Daily</span>
+          <span>Next song in: {timeRemaining}</span>
         </div>
       </div>
 
