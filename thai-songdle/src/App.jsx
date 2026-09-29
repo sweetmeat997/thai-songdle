@@ -1,52 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
 
-// ใช้รหัส YouTube ID ตรงนี้ได้เลย ไม่ต้องโหลดไฟล์ MP3 เอง!
+// รายชื่อเพลงทั้งหมด คุมเพลงได้ง่ายๆ ตรงนี้เลย!
 const MASTER_SONG_LIBRARY = [
-  { title: "ฝนตกไหม", artist: "Three Man Down", youtubeId: "36Y1v27T7OM" },
-  { title: "พิง", artist: "NONT TANONT", youtubeId: "V54w1a_9-94" },
-  { title: "ซ่อนกลิ่น", artist: "Palmy", youtubeId: "V6709h0i_10" },
-  { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", youtubeId: "7L2f9y8z1k0" },
-  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", youtubeId: "6X4z2q3w8v0" }
+  { title: "ฝนตกไหม", artist: "Three Man Down", audio: "/song1.mp3" },
+  { title: "พิง", artist: "NONT TANONT", audio: "/song2.mp3" },
+  { title: "ซ่อนกลิ่น", artist: "Palmy", audio: "/song3.mp3" },
+  { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", audio: "/song4.mp3" },
+  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", audio: "/song5.mp3" }
 ];
 
 const ALL_ANSWERS = MASTER_SONG_LIBRARY.map(song => `${song.title} - ${song.artist}`);
-
-const DEFAULT_DIFFICULTIES = [
-  { id: 'easy', label: 'Easy', color: 'bg-green-500' },
-  { id: 'medium', label: 'Medium', color: 'bg-yellow-500' },
-  { id: 'hard', label: 'Hard', color: 'bg-orange-500' },
-  { id: 'expert', label: 'Expert', color: 'bg-red-500' },
-  { id: 'impossible', label: 'Impossible', color: 'bg-purple-500' }
-];
 
 const TIME_STEPS = [0.5, 2.0, 5.0, 10.0, 15.0, 30.0];
 const MAX_GUESSES = 6;
 const MAX_DURATION = 30.0;
 
 export default function App() {
-  const [currentDiff, setCurrentDiff] = useState('easy');
   const [timeRemaining, setTimeRemaining] = useState('23:59:59');
-  
-  const [gameStates, setGameStates] = useState({
-    easy: { guesses: [], step: 0, status: 'playing' },
-    medium: { guesses: [], step: 0, status: 'playing' },
-    hard: { guesses: [], step: 0, status: 'playing' },
-    expert: { guesses: [], step: 0, status: 'playing' },
-    impossible: { guesses: [], step: 0, status: 'playing' }
-  });
+  const [guesses, setGuesses] = useState([]);
+  const [step, setStep] = useState(0);
+  const [status, setStatus] = useState('playing'); // playing, won, lost
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const playerRef = useRef(null);
-  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const audioRef = useRef(null);
 
-  const currentState = gameStates[currentDiff];
-  
-  // สลับเพลงประจำวันตามวันที่
+  // เลือกเพลงประจำวัน (ทุกคนทั่วประเทศจะได้เล่นเพลงเดียวกันในแต่ละวัน)
   const getDailySong = () => {
     const today = new Date();
     const dayIndex = Math.floor(today.setHours(0,0,0,0) / (1000 * 60 * 60 * 24));
@@ -54,96 +37,74 @@ export default function App() {
   };
 
   const currentSong = getDailySong();
-  const currentAllowedTime = TIME_STEPS[currentState.step];
+  const currentAllowedTime = TIME_STEPS[step];
   const currentCorrectAnswer = `${currentSong.title} - ${currentSong.artist}`;
 
-  // โหลด YouTube IFrame API Script เข้ามาในระบบ
+  // นับถอยหลังเปลี่ยนเพลงใหม่ทุกเที่ยงคืน
   useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    const timer = setInterval(() => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setHours(24, 0, 0, 0);
+      const diff = tomorrow - now;
 
-      window.onYouTubeIframeAPIReady = () => {
-        initPlayer(currentSong.youtubeId);
-      };
-    } else if (window.YT && window.YT.Player) {
-      initPlayer(currentSong.youtubeId);
-    }
+      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeRemaining(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  const initPlayer = (videoId) => {
-    playerRef.current = new window.YT.Player('youtube-player', {
-      height: '0',
-      width: '0',
-      videoId: videoId,
-      playerVars: {
-        'playsinline': 1,
-        'controls': 0,
-      },
-      events: {
-        'onReady': () => setIsPlayerReady(true),
-        'onStateChange': onPlayerStateChange
-      }
-    });
-  };
-
-  const onPlayerStateChange = (event) => {
-    if (event.data === window.YT.PlayerState.PLAYING) {
-      setIsPlaying(true);
-    } else {
-      setIsPlaying(false);
-    }
-  };
-
-  // ควบคุมเวลาเล่นไม่ให้เกินโควตาสเตป
+  // ควบคุมเวลาเล่นเสียงเพลงไม่ให้เกินสเตปที่เปิด
   useEffect(() => {
-    let interval;
-    if (isPlaying && isPlayerReady) {
-      const startTime = Date.now() - (progress * 1000);
-      interval = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        if (elapsed >= currentAllowedTime) {
-          if (playerRef.current && playerRef.current.pauseVideo) {
-            playerRef.current.pauseVideo();
-            playerRef.current.seekTo(0);
-          }
+    let animationFrame;
+    const updateProgress = () => {
+      if (audioRef.current && isPlaying) {
+        const currentTime = audioRef.current.currentTime;
+        setProgress(currentTime);
+
+        if (currentTime >= currentAllowedTime) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
           setIsPlaying(false);
           setProgress(0);
-          clearInterval(interval);
         } else {
-          setProgress(elapsed);
+          animationFrame = requestAnimationFrame(updateProgress);
         }
-      }, 50);
-    } else {
-      clearInterval(interval);
+      }
+    };
+
+    if (isPlaying && audioRef.current) {
+      audioRef.current.play().catch(err => {
+        console.log("Play error:", err);
+        setIsPlaying(false);
+      });
+      animationFrame = requestAnimationFrame(updateProgress);
+    } else if (audioRef.current) {
+      audioRef.current.pause();
     }
-    return () => clearInterval(interval);
-  }, [isPlaying, currentAllowedTime, isPlayerReady]);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isPlaying, currentAllowedTime]);
 
   const togglePlay = () => {
-    if (!isPlayerReady || !playerRef.current) return;
-
     if (isPlaying) {
-      playerRef.current.pauseVideo();
       setIsPlaying(false);
+      if (audioRef.current) audioRef.current.pause();
     } else {
-      playerRef.current.seekTo(0);
-      playerRef.current.playVideo();
       setIsPlaying(true);
-      setProgress(0);
     }
   };
 
   const handleGuess = (guessValue) => {
-    if (currentState.status !== 'playing') return;
+    if (status !== 'playing') return;
 
     const isCorrect = guessValue === currentCorrectAnswer;
-    const newGuesses = [...currentState.guesses, { text: guessValue, isCorrect }];
+    const newGuesses = [...guesses, { text: guessValue, isCorrect }];
     
     let newStatus = 'playing';
-    let newStep = currentState.step;
+    let newStep = step;
 
     if (isCorrect) {
       newStatus = 'won';
@@ -152,22 +113,21 @@ export default function App() {
       newStatus = 'lost';
       newStep = TIME_STEPS.length - 1;
     } else {
-      newStep = Math.min(currentState.step + 1, TIME_STEPS.length - 1);
+      newStep = Math.min(step + 1, TIME_STEPS.length - 1);
     }
 
-    setGameStates(prev => ({
-      ...prev,
-      [currentDiff]: { guesses: newGuesses, step: newStep, status: newStatus }
-    }));
+    setGuesses(newGuesses);
+    setStep(newStep);
+    setStatus(newStatus);
     
     setSearchInput('');
     setShowDropdown(false);
-    if (playerRef.current && playerRef.current.pauseVideo) {
-      playerRef.current.pauseVideo();
-      playerRef.current.seekTo(0);
-    }
     setIsPlaying(false);
     setProgress(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
   };
 
   const handleSkip = () => {
@@ -180,31 +140,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 px-4 font-sans select-none">
-      {/* ซ่อน YouTube Player ไว้ตรงนี้ */}
-      <div id="youtube-player" className="hidden"></div>
+      <audio ref={audioRef} src={currentSong.audio} preload="auto" />
 
       <div className="w-full max-w-2xl flex justify-between items-center mb-8">
         <h1 className="text-4xl font-black tracking-tighter text-cyan-400">THAI SONGDLE</h1>
         <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 text-sm">
           <Info size={16} className="text-cyan-400" />
-          <span>New Song Daily</span>
+          <span>Next song in: {timeRemaining}</span>
         </div>
       </div>
 
-      <div className="w-full max-w-2xl bg-slate-900 p-1.5 rounded-2xl flex gap-1 mb-10 border border-slate-800">
-        {DEFAULT_DIFFICULTIES.map(diff => (
-          <button
-            key={diff.id}
-            onClick={() => setCurrentDiff(diff.id)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer z-10
-              ${currentDiff === diff.id ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-          >
-            <div className={`w-2 h-2 rounded-full ${diff.color}`} />
-            {diff.label}
-          </button>
-        ))}
-      </div>
-
+      {/* Progress Bar */}
       <div className="w-full max-w-2xl mb-12">
         <div className="relative h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
           <div 
@@ -223,6 +169,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Play Button */}
       <div className="mb-12 relative z-20">
         <button 
           onClick={togglePlay}
@@ -232,7 +179,8 @@ export default function App() {
         </button>
       </div>
 
-      {currentState.status === 'playing' && (
+      {/* Search & Skip Controls */}
+      {status === 'playing' && (
         <div className="w-full max-w-2xl flex gap-3 mb-8 relative z-20">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
@@ -279,10 +227,11 @@ export default function App() {
         </div>
       )}
 
-      {currentState.status !== 'playing' && (
+      {/* Game Over / Win State */}
+      {status !== 'playing' && (
         <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 mb-8 text-center z-20">
           <h2 className="text-2xl font-black mb-2">
-            {currentState.status === 'won' ? <span className="text-cyan-400">CORRECT! 🎯</span> : <span className="text-red-400">GAME OVER 💔</span>}
+            {status === 'won' ? <span className="text-cyan-400">CORRECT! 🎯</span> : <span className="text-red-400">GAME OVER 💔</span>}
           </h2>
           <p className="text-slate-400 mb-6">The song was: <br/><span className="text-xl text-white font-bold">{currentCorrectAnswer}</span></p>
           <button 
@@ -294,10 +243,11 @@ export default function App() {
         </div>
       )}
 
+      {/* Guess Rows */}
       <div className="w-full max-w-2xl space-y-3">
         {[...Array(MAX_GUESSES)].map((_, i) => {
-          const guess = currentState.guesses[i];
-          const isCurrentRow = i === currentState.guesses.length;
+          const guess = guesses[i];
+          const isCurrentRow = i === guesses.length;
           
           return (
             <div 
@@ -305,11 +255,11 @@ export default function App() {
               className={`flex items-center p-4 rounded-xl border-2 transition-all
                 ${guess 
                   ? guess.isCorrect ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-red-500 bg-red-500/10 text-red-400'
-                  : isCurrentRow && currentState.status === 'playing' ? 'border-slate-700 bg-slate-900' : 'border-slate-800 bg-transparent'}`}
+                  : isCurrentRow && status === 'playing' ? 'border-slate-700 bg-slate-900' : 'border-slate-800 bg-transparent'}`}
             >
               <div className="w-6 font-mono text-slate-500 text-sm">{i + 1}</div>
               <div className="flex-1 px-4 font-medium truncate">
-                {guess ? guess.text : (isCurrentRow && currentState.status === 'playing' ? <span className="text-slate-600">Guess #{i + 1}...</span> : '')}
+                {guess ? guess.text : (isCurrentRow && status === 'playing' ? <span className="text-slate-600">Guess #{i + 1}...</span> : '')}
               </div>
               <div>
                 {guess && (guess.isCorrect ? <CheckCircle2 className="text-cyan-400" size={20} /> : <XCircle className="text-red-400" size={20} />)}
