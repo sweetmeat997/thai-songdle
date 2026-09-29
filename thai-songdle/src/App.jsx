@@ -1,32 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
 
 const dailySongPool = {
-  easy: {
-    title: "ฝนตกไหม",
-    artist: "Three Man Down",
-    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/71/6a/51/716a51d9-8356-896c-b362-d27376c8db80/mza_1067253578794403328.plus.aac.p.m4a"
-  },
-  medium: {
-    title: "พิง",
-    artist: "NONT TANONT",
-    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/a4/60/76/a4607632-6a84-93ec-e889-25f00c732cb6/mza_14093952702161730030.plus.aac.p.m4a"
-  },
-  hard: {
-    title: "ซ่อนกลิ่น",
-    artist: "Palmy",
-    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview112/v4/6c/42/47/6c42472d-3d46-4e5c-02cf-37b51b34e402/mza_1669226168923058862.plus.aac.p.m4a"
-  },
-  expert: {
-    title: "คิดแต่ไม่ถึง",
-    artist: "Tilly Birds",
-    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/43/8d/4b/438d4b3c-6239-0d19-4869-2f2b3e8c05bb/mza_11977755866164287848.plus.aac.p.m4a"
-  },
-  impossible: {
-    title: "ลบไม่ได้ช่วยให้ลืม",
-    artist: "Ink Waruntorn",
-    audio: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/31/5b/19/315b19b6-8c41-7994-4061-26c71048b613/mza_2375836894082218858.plus.aac.p.m4a"
-  }
+  easy: { title: "ฝนตกไหม", artist: "Three Man Down" },
+  medium: { title: "พิง", artist: "NONT TANONT" },
+  hard: { title: "ซ่อนกลิ่น", artist: "Palmy" },
+  expert: { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds" },
+  impossible: { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn" }
 };
 
 const ALL_ANSWERS = [
@@ -69,9 +49,6 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  
-  const audioRef = useRef(null);
-  const animationRef = useRef(null);
   const [progress, setProgress] = useState(0);
 
   const currentState = gameStates[currentDiff];
@@ -79,6 +56,7 @@ export default function App() {
   const currentAllowedTime = TIME_STEPS[currentState.step];
   const currentCorrectAnswer = `${currentSong.title} - ${currentSong.artist}`;
 
+  // นับถอยหลัง 24 ชม.
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -94,53 +72,58 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // ระบบเล่นเสียงและจำลองเวลาเดินแบบอิสระ
   useEffect(() => {
-    const checkAudioTime = () => {
-      if (audioRef.current && isPlaying) {
-        const currentTime = audioRef.current.currentTime;
-        setProgress(currentTime);
+    let interval = null;
+    if (isPlaying) {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + currentAllowedTime);
+      } catch (e) {
+        console.log("Audio Context:", e);
+      }
 
-        if (currentTime >= currentAllowedTime) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
+      const startTime = Date.now() - (progress * 1000);
+      interval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        if (elapsed >= currentAllowedTime) {
           setIsPlaying(false);
           setProgress(0);
+          clearInterval(interval);
         } else {
-          animationRef.current = requestAnimationFrame(checkAudioTime);
+          setProgress(elapsed);
         }
-      }
-    };
-
-    if (isPlaying) {
-      animationRef.current = requestAnimationFrame(checkAudioTime);
+      }, 50);
     } else {
-      cancelAnimationFrame(animationRef.current);
+      clearInterval(interval);
     }
 
-    return () => cancelAnimationFrame(animationRef.current);
+    return () => clearInterval(interval);
   }, [isPlaying, currentAllowedTime]);
 
+  // เปลี่ยนโหมดความยาก รีเซ็ตเวลา
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.load();
-    }
     setIsPlaying(false);
     setProgress(0);
   }, [currentDiff]);
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
-    
     if (isPlaying) {
-      audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(e => console.error("Audio playback error:", e));
+      setIsPlaying(true);
     }
   };
 
@@ -170,11 +153,8 @@ export default function App() {
     
     setSearchInput('');
     setShowDropdown(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      setProgress(0);
-    }
+    setIsPlaying(false);
+    setProgress(0);
   };
 
   const handleSkip = () => {
@@ -187,8 +167,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 px-4 font-sans select-none">
-      <audio ref={audioRef} src={currentSong.audio} preload="auto" />
-
+      {/* Header */}
       <div className="w-full max-w-2xl flex justify-between items-center mb-8">
         <h1 className="text-4xl font-black tracking-tighter text-cyan-400">THAI SONGDLE</h1>
         <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 text-sm">
@@ -197,6 +176,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Difficulty Tabs */}
       <div className="w-full max-w-2xl bg-slate-900 p-1.5 rounded-2xl flex gap-1 mb-10 border border-slate-800">
         {DEFAULT_DIFFICULTIES.map(diff => (
           <button
@@ -211,6 +191,7 @@ export default function App() {
         ))}
       </div>
 
+      {/* Progress Bar */}
       <div className="w-full max-w-2xl mb-12">
         <div className="relative h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
           <div 
@@ -229,6 +210,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Play Button */}
       <div className="mb-12 relative z-20">
         <button 
           onClick={togglePlay}
@@ -238,6 +220,7 @@ export default function App() {
         </button>
       </div>
 
+      {/* Search & Skip Controls */}
       {currentState.status === 'playing' && (
         <div className="w-full max-w-2xl flex gap-3 mb-8 relative z-20">
           <div className="relative flex-1">
@@ -285,6 +268,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Game Over / Win State */}
       {currentState.status !== 'playing' && (
         <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 mb-8 text-center z-20">
           <h2 className="text-2xl font-black mb-2">
@@ -300,6 +284,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Guess Rows */}
       <div className="w-full max-w-2xl space-y-3">
         {[...Array(MAX_GUESSES)].map((_, i) => {
           const guess = currentState.guesses[i];
