@@ -1,26 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
 
-const dailySongPool = {
-  easy: { title: "ฝนตกไหม", artist: "Three Man Down" },
-  medium: { title: "พิง", artist: "NONT TANONT" },
-  hard: { title: "ซ่อนกลิ่น", artist: "Palmy" },
-  expert: { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds" },
-  impossible: { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn" }
-};
-
-const ALL_ANSWERS = [
-  "ฝนตกไหม - Three Man Down",
-  "พิง - NONT TANONT",
-  "ซ่อนกลิ่น - Palmy",
-  "คิดแต่ไม่ถึง - Tilly Birds",
-  "ลบไม่ได้ช่วยให้ลืม - Ink Waruntorn",
-  "โต๊ะริม - NONT TANONT",
-  "เพื่อนเล่น ไม่เล่นเพื่อน - Tilly Birds",
-  "แสงสุดท้าย - Bodyslam",
-  "นะหน้าทอง - Joey Phuwasit",
-  "ทรงอย่างแบด - Paper Planes"
+// ใช้รหัส YouTube ID ตรงนี้ได้เลย ไม่ต้องโหลดไฟล์ MP3 เอง!
+const MASTER_SONG_LIBRARY = [
+  { title: "ฝนตกไหม", artist: "Three Man Down", youtubeId: "36Y1v27T7OM" },
+  { title: "พิง", artist: "NONT TANONT", youtubeId: "V54w1a_9-94" },
+  { title: "ซ่อนกลิ่น", artist: "Palmy", youtubeId: "V6709h0i_10" },
+  { title: "คิดแต่ไม่ถึง", artist: "Tilly Birds", youtubeId: "7L2f9y8z1k0" },
+  { title: "ลบไม่ได้ช่วยให้ลืม", artist: "Ink Waruntorn", youtubeId: "6X4z2q3w8v0" }
 ];
+
+const ALL_ANSWERS = MASTER_SONG_LIBRARY.map(song => `${song.title} - ${song.artist}`);
 
 const DEFAULT_DIFFICULTIES = [
   { id: 'easy', label: 'Easy', color: 'bg-green-500' },
@@ -51,54 +41,74 @@ export default function App() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  const playerRef = useRef(null);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+
   const currentState = gameStates[currentDiff];
-  const currentSong = dailySongPool[currentDiff];
+  
+  // สลับเพลงประจำวันตามวันที่
+  const getDailySong = () => {
+    const today = new Date();
+    const dayIndex = Math.floor(today.setHours(0,0,0,0) / (1000 * 60 * 60 * 24));
+    return MASTER_SONG_LIBRARY[dayIndex % MASTER_SONG_LIBRARY.length];
+  };
+
+  const currentSong = getDailySong();
   const currentAllowedTime = TIME_STEPS[currentState.step];
   const currentCorrectAnswer = `${currentSong.title} - ${currentSong.artist}`;
 
-  // นับถอยหลัง 24 ชม.
+  // โหลด YouTube IFrame API Script เข้ามาในระบบ
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setHours(24, 0, 0, 0);
-      const diff = tomorrow - now;
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeRemaining(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
-    }, 1000);
-    return () => clearInterval(timer);
+      window.onYouTubeIframeAPIReady = () => {
+        initPlayer(currentSong.youtubeId);
+      };
+    } else if (window.YT && window.YT.Player) {
+      initPlayer(currentSong.youtubeId);
+    }
   }, []);
 
-  // ระบบเล่นเสียงและจำลองเวลาเดินแบบอิสระ
-  useEffect(() => {
-    let interval = null;
-    if (isPlaying) {
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
-        osc.start();
-        osc.stop(ctx.currentTime + currentAllowedTime);
-      } catch (e) {
-        console.log("Audio Context:", e);
+  const initPlayer = (videoId) => {
+    playerRef.current = new window.YT.Player('youtube-player', {
+      height: '0',
+      width: '0',
+      videoId: videoId,
+      playerVars: {
+        'playsinline': 1,
+        'controls': 0,
+      },
+      events: {
+        'onReady': () => setIsPlayerReady(true),
+        'onStateChange': onPlayerStateChange
       }
+    });
+  };
 
+  const onPlayerStateChange = (event) => {
+    if (event.data === window.YT.PlayerState.PLAYING) {
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+    }
+  };
+
+  // ควบคุมเวลาเล่นไม่ให้เกินโควตาสเตป
+  useEffect(() => {
+    let interval;
+    if (isPlaying && isPlayerReady) {
       const startTime = Date.now() - (progress * 1000);
       interval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
         if (elapsed >= currentAllowedTime) {
+          if (playerRef.current && playerRef.current.pauseVideo) {
+            playerRef.current.pauseVideo();
+            playerRef.current.seekTo(0);
+          }
           setIsPlaying(false);
           setProgress(0);
           clearInterval(interval);
@@ -109,21 +119,20 @@ export default function App() {
     } else {
       clearInterval(interval);
     }
-
     return () => clearInterval(interval);
-  }, [isPlaying, currentAllowedTime]);
-
-  // เปลี่ยนโหมดความยาก รีเซ็ตเวลา
-  useEffect(() => {
-    setIsPlaying(false);
-    setProgress(0);
-  }, [currentDiff]);
+  }, [isPlaying, currentAllowedTime, isPlayerReady]);
 
   const togglePlay = () => {
+    if (!isPlayerReady || !playerRef.current) return;
+
     if (isPlaying) {
+      playerRef.current.pauseVideo();
       setIsPlaying(false);
     } else {
+      playerRef.current.seekTo(0);
+      playerRef.current.playVideo();
       setIsPlaying(true);
+      setProgress(0);
     }
   };
 
@@ -153,6 +162,10 @@ export default function App() {
     
     setSearchInput('');
     setShowDropdown(false);
+    if (playerRef.current && playerRef.current.pauseVideo) {
+      playerRef.current.pauseVideo();
+      playerRef.current.seekTo(0);
+    }
     setIsPlaying(false);
     setProgress(0);
   };
@@ -167,16 +180,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 px-4 font-sans select-none">
-      {/* Header */}
+      {/* ซ่อน YouTube Player ไว้ตรงนี้ */}
+      <div id="youtube-player" className="hidden"></div>
+
       <div className="w-full max-w-2xl flex justify-between items-center mb-8">
         <h1 className="text-4xl font-black tracking-tighter text-cyan-400">THAI SONGDLE</h1>
         <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 text-sm">
           <Info size={16} className="text-cyan-400" />
-          <span>Next song in: {timeRemaining}</span>
+          <span>New Song Daily</span>
         </div>
       </div>
 
-      {/* Difficulty Tabs */}
       <div className="w-full max-w-2xl bg-slate-900 p-1.5 rounded-2xl flex gap-1 mb-10 border border-slate-800">
         {DEFAULT_DIFFICULTIES.map(diff => (
           <button
@@ -191,7 +205,6 @@ export default function App() {
         ))}
       </div>
 
-      {/* Progress Bar */}
       <div className="w-full max-w-2xl mb-12">
         <div className="relative h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
           <div 
@@ -210,7 +223,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Play Button */}
       <div className="mb-12 relative z-20">
         <button 
           onClick={togglePlay}
@@ -220,7 +232,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* Search & Skip Controls */}
       {currentState.status === 'playing' && (
         <div className="w-full max-w-2xl flex gap-3 mb-8 relative z-20">
           <div className="relative flex-1">
@@ -268,7 +279,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Game Over / Win State */}
       {currentState.status !== 'playing' && (
         <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 mb-8 text-center z-20">
           <h2 className="text-2xl font-black mb-2">
@@ -284,7 +294,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Guess Rows */}
       <div className="w-full max-w-2xl space-y-3">
         {[...Array(MAX_GUESSES)].map((_, i) => {
           const guess = currentState.guesses[i];
