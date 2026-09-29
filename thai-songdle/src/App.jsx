@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Share2, Info } from 'lucide-react';
+import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Info } from 'lucide-react';
 
 // คลังเพลงหลัก (5 เพลง) แก้ไข เพิ่ม หรือเปลี่ยนลิงก์ตรงนี้ได้ตลอดเวลาบน GitHub
 const MASTER_SONG_LIBRARY = [
@@ -247,19 +247,14 @@ export default function App() {
         </div>
       )}
 
-      {/* Game Over / Win State */}
+      {/* Game Over / Win State (No Share Button) */}
       {status !== 'playing' && (
         <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 mb-8 text-center z-20">
           <h2 className="text-2xl font-black mb-2">
             {status === 'won' ? <span className="text-cyan-400">CORRECT! 🎯</span> : <span className="text-red-400">GAME OVER 💔</span>}
           </h2>
-          <p className="text-slate-400 mb-6">The song was: <br/><span className="text-xl text-white font-bold">{currentCorrectAnswer}</span></p>
-          <button 
-            onClick={() => alert("Result copied!")}
-            className="inline-flex items-center gap-2 bg-cyan-400 text-slate-950 font-black px-8 py-3 rounded-full cursor-pointer"
-          >
-            <Share2 size={20} /> SHARE RESULT
-          </button>
+          <p className="text-slate-400 mb-2">The song was:</p>
+          <span className="text-xl text-white font-bold">{currentCorrectAnswer}</span>
         </div>
       )}
 
