@@ -31,7 +31,7 @@ const MASTER_SONG_LIBRARY = [
     title: "ลบไม่ได้ช่วยให้ลืม", 
     artist: "Ink Waruntorn", 
     audio: "https://files.catbox.moe/be0kr1.mp3",
-    startTime: 5
+    startTime: 7
   }
 ];
 
