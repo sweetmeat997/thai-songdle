@@ -1,32 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Search, CheckCircle2, XCircle, Info } from 'lucide-react';
 
-// คลังเพลงหลัก (5 เพลง) แก้ไข เพิ่ม หรือเปลี่ยนลิงก์ตรงนี้ได้ตลอดเวลาบน GitHub
+// คลังเพลงหลัก: สามารถใส่ startTime (วินาที) เพื่อข้ามช่วงแรกของเพลงได้เลย!
 const MASTER_SONG_LIBRARY = [
   { 
     title: "ฝนตกไหม", 
     artist: "Three Man Down", 
-    audio: "https://files.catbox.moe/5a7lll.mp3" 
+    audio: "https://files.catbox.moe/5a7lll.mp3",
+    startTime: 5 // ข้าม 5 วินาทีแรก
   },
   { 
     title: "พิง", 
     artist: "NONT TANONT", 
-    audio: "https://files.catbox.moe/33rs0y.mp3" 
+    audio: "https://files.catbox.moe/33rs0y.mp3",
+    startTime: 10 // ข้าม 10 วินาทีแรก (เริ่มท่อนฮุค)
   },
   { 
     title: "ซ่อนกลิ่น", 
     artist: "Palmy", 
-    audio: "https://files.catbox.moe/bhcdd3.mp3" 
+    audio: "https://files.catbox.moe/bhcdd3.mp3",
+    startTime: 0 // เริ่มตั้งแต่วินาทีแรก
   },
   { 
     title: "คิดแต่ไม่ถึง", 
     artist: "Tilly Birds", 
-    audio: "https://files.catbox.moe/0bom5h.mp3" 
+    audio: "https://files.catbox.moe/0bom5h.mp3",
+    startTime: 5
   },
   { 
     title: "ลบไม่ได้ช่วยให้ลืม", 
     artist: "Ink Waruntorn", 
-    audio: "https://files.catbox.moe/be0kr1.mp3" 
+    audio: "https://files.catbox.moe/be0kr1.mp3",
+    startTime: 0
   }
 ];
 
@@ -57,6 +62,7 @@ export default function App() {
   };
 
   const currentSong = getDailySong();
+  const songOffset = currentSong.startTime || 0; // จุดเริ่มเล่นของเพลง
   const currentAllowedTime = TIME_STEPS[step];
   const currentCorrectAnswer = `${currentSong.title} - ${currentSong.artist}`;
 
@@ -76,17 +82,18 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // ควบคุมเวลาเล่นเสียงเพลงไม่ให้เกินสเตปที่ปลดล็อก
+  // ควบคุมเวลาเล่นเสียงเพลง (เทียบจากจุดเริ่ม songOffset)
   useEffect(() => {
     let animationFrame;
     const updateProgress = () => {
       if (audioRef.current && isPlaying) {
-        const currentTime = audioRef.current.currentTime;
-        setProgress(currentTime);
+        const elapsed = audioRef.current.currentTime - songOffset;
+        const currentElapsed = Math.max(0, elapsed);
+        setProgress(currentElapsed);
 
-        if (currentTime >= currentAllowedTime) {
+        if (currentElapsed >= currentAllowedTime) {
           audioRef.current.pause();
-          audioRef.current.currentTime = 0;
+          audioRef.current.currentTime = songOffset;
           setIsPlaying(false);
           setProgress(0);
         } else {
@@ -106,13 +113,17 @@ export default function App() {
     }
 
     return () => cancelAnimationFrame(animationFrame);
-  }, [isPlaying, currentAllowedTime]);
+  }, [isPlaying, currentAllowedTime, songOffset]);
 
   const togglePlay = () => {
+    if (!audioRef.current) return;
+
     if (isPlaying) {
       setIsPlaying(false);
-      if (audioRef.current) audioRef.current.pause();
+      audioRef.current.pause();
     } else {
+      audioRef.current.currentTime = songOffset;
+      setProgress(0);
       setIsPlaying(true);
     }
   };
@@ -146,7 +157,7 @@ export default function App() {
     setProgress(0);
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      audioRef.current.currentTime = songOffset;
     }
   };
 
@@ -160,7 +171,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 px-4 font-sans select-none">
-      <audio ref={audioRef} src={currentSong.audio} preload="auto" />
+      <audio 
+        ref={audioRef} 
+        src={currentSong.audio} 
+        preload="auto" 
+        onLoadedMetadata={() => {
+          if (audioRef.current) audioRef.current.currentTime = songOffset;
+        }}
+      />
 
       <div className="w-full max-w-2xl flex justify-between items-center mb-8">
         <h1 className="text-4xl font-black tracking-tighter text-cyan-400">THAI SONGDLE</h1>
@@ -247,7 +265,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Game Over / Win State (No Share Button) */}
+      {/* Game Over / Win State */}
       {status !== 'playing' && (
         <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-8 mb-8 text-center z-20">
           <h2 className="text-2xl font-black mb-2">
