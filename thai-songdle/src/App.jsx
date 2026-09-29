@@ -25,13 +25,13 @@ const MASTER_SONG_LIBRARY = [
     title: "คิดแต่ไม่ถึง", 
     artist: "Tilly Birds", 
     audio: "https://files.catbox.moe/0bom5h.mp3",
-    startTime: 5
+    startTime: 3
   },
   { 
     title: "ลบไม่ได้ช่วยให้ลืม", 
     artist: "Ink Waruntorn", 
     audio: "https://files.catbox.moe/be0kr1.mp3",
-    startTime: 7
+    startTime: 6
   }
 ];
 
